@@ -16,8 +16,17 @@ from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'guardtire-secret-2025')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///guardtire.db')
+# Fix postgres:// -> postgresql:// and add reconnect/SSL options
+_db_url = os.environ.get('DATABASE_URL', 'sqlite:///guardtire.db')
+if _db_url.startswith('postgres://'):
+    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 280,
+    'connect_args': {'sslmode': 'require'} if 'postgresql' in _db_url else {},
+}
 app.config['PDF_FOLDER'] = os.environ.get('PDF_FOLDER', 'pdfs')
 
 db = SQLAlchemy(app)
@@ -506,9 +515,19 @@ Guardtire AntiPinchazos
         part.add_header('Content-Disposition', f'attachment; filename=garantia_{g.numero}.pdf')
         msg.attach(part)
 
-    with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, to_email, msg.as_string())
+    # Try TLS (port 587) first - Railway blocks 465 SSL
+    try:
+        with smtplib.SMTP(smtp_host, 587, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, to_email, msg.as_string())
+    except Exception:
+        # Fallback to SSL port 465
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15) as server:
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, to_email, msg.as_string())
 
 # ─── INIT ──────────────────────────────────────────────────────────────────────
 def init_db():
