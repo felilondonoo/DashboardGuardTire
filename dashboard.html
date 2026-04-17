@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guardtire – Panel</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #222; }
+
+/* NAV */
+nav {
+  background: #111111; color: #fff;
+  padding: 0 24px; height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.nav-brand { font-weight: 800; font-size: 20px; letter-spacing: 2px; }
+.nav-sub { font-size: 10px; letter-spacing: 2px; opacity: 0.8; }
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.nav-user { font-size: 13px; opacity: 0.9; }
+.logout-btn {
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  transition: background 0.2s;
+}
+.logout-btn:hover { background: rgba(255,255,255,0.25); }
+
+/* TABS */
+.tabs {
+  background: #fff; border-bottom: 2px solid #eee;
+  display: flex; padding: 0 24px; gap: 4px;
+}
+.tab {
+  padding: 14px 20px; cursor: pointer; font-size: 14px; font-weight: 600;
+  color: #777; border-bottom: 3px solid transparent; margin-bottom: -2px;
+  transition: all 0.2s; white-space: nowrap;
+}
+.tab:hover { color: #111111; }
+.tab.active { color: #111111; border-bottom-color: #111111; }
+.tab-panel { display: none; padding: 24px; max-width: 900px; margin: 0 auto; }
+.tab-panel.active { display: block; }
+
+/* CARDS */
+.card {
+  background: #fff; border-radius: 10px; padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 20px;
+}
+.card-title {
+  font-size: 16px; font-weight: 700; color: #111111;
+  margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #f5f5f5;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* FORMS */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: 11px; font-weight: 700; color: #555; letter-spacing: 0.5px; }
+.form-group input, .form-group select, .form-group textarea {
+  padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 7px;
+  font-size: 14px; outline: none; transition: border-color 0.2s; font-family: inherit;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #111111; }
+.form-group textarea { resize: vertical; min-height: 70px; }
+.form-full { grid-column: 1 / -1; }
+
+/* BUTTONS */
+.btn { padding: 11px 22px; border: none; border-radius: 7px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-red { background: #111111; color: #fff; }
+.btn-red:hover { background: #333333; }
+.btn-outline { background: transparent; border: 1.5px solid #111111; color: #111111; }
+.btn-outline:hover { background: #111111; color: #fff; }
+.btn-green { background: #27ae60; color: #fff; }
+.btn-green:hover { background: #229954; }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-row { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+
+/* RESULT BOX */
+.result-box {
+  background: linear-gradient(135deg, #111111, #222222);
+  color: #fff; border-radius: 10px; padding: 20px;
+  text-align: center; margin-top: 16px;
+}
+.result-value { font-size: 42px; font-weight: 800; line-height: 1; }
+.result-label { font-size: 13px; opacity: 0.85; margin-top: 6px; }
+
+/* RADIO BUTTONS */
+.radio-group { display: flex; gap: 12px; }
+.radio-label {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 8px 14px; border: 1.5px solid #ddd; border-radius: 7px;
+  font-size: 13px; transition: all 0.2s;
+}
+.radio-label input { display: none; }
+.radio-label.selected { border-color: #111111; color: #111111; font-weight: 600; background: #fdf0ef; }
+
+/* TABLE */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #f5f5f5; padding: 10px 12px; text-align: left; font-weight: 700; color: #555; font-size: 11px; letter-spacing: 0.5px; }
+td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+tr:hover td { background: #fafafa; }
+.badge {
+  display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
+}
+.badge-admin { background: #f0f0f0; color: #111111; }
+.badge-operario { background: #eaf4fb; color: #2980b9; }
+.badge-nueva { background: #eafaf1; color: #27ae60; }
+.badge-usada { background: #fef9e7; color: #e67e22; }
+
+/* ALERTS */
+.alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: none; }
+.alert-success { background: #eafaf1; color: #27ae60; border: 1px solid #a9dfbf; }
+.alert-error { background: #fdf0ef; color: #111111; border: 1px solid #f1948a; }
+
+/* MODAL */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: #fff; border-radius: 12px; padding: 28px; width: 480px; max-width: 95vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; color: #111111; }
+.modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* PAGINATION */
+.pagination { display: flex; gap: 6px; justify-content: center; margin-top: 16px; }
+.page-btn {
+  padding: 6px 12px; border: 1.5px solid #ddd; background: #fff; border-radius: 6px;
+  cursor: pointer; font-size: 13px; transition: all 0.2s;
+}
+.page-btn.active { background: #111111; color: #fff; border-color: #111111; }
+.page-btn:hover:not(.active) { border-color: #111111; color: #111111; }
+
+/* SUCCESS PANEL after garantia */
+.success-panel {
+  background: #eafaf1; border: 1.5px solid #a9dfbf; border-radius: 10px;
+  padding: 20px; display: none;
+}
+.success-panel .num { font-size: 36px; font-weight: 800; color: #27ae60; }
+
+@media (max-width: 600px) {
+  .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
+  .tab { padding: 12px 12px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<nav>
+  <div>
+    <div class="nav-brand">GUARDTIRE</div>
+    <div class="nav-sub">ANTIPINCHAZOS</div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user">👤 {{ username }}</span>
+    <button class="logout-btn" onclick="window.location='/logout'">Salir</button>
+  </div>
+</nav>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('calc')">🔢 Calculadora Polímero</div>
+  <div class="tab" onclick="switchTab('garantia')">📄 Nueva Garantía</div>
+  <div class="tab" onclick="switchTab('historial')">📋 Historial</div>
+  {% if role == 'admin' %}
+  <div class="tab" onclick="switchTab('admin')">⚙️ Usuarios</div>
+  {% endif %}
+</div>
+
+<!-- ─── CALCULADORA ─── -->
+<div id="tab-calc" class="tab-panel active">
+  <div class="card">
+    <div class="card-title">🔢 Calculadora de Kg de Polímero</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>REFERENCIA DE LLANTA</label>
+        <select id="calc-ref" onchange="calcRefChange()">
+          <option value="">— Seleccionar referencia —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>CANTIDAD DE LLANTAS</label>
+        <input type="number" id="calc-qty" value="1" min="1" max="100">
+      </div>
+    </div>
+    <div id="manual-calc" style="display:none; margin-top:16px;">
+      <div style="font-size:12px; color:#888; margin-bottom:10px;">O calcula manualmente:</div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label>W (mm)</label>
+          <input type="number" id="calc-w" placeholder="ej: 205">
+        </div>
+        <div class="form-group">
+          <label>PERFIL %</label>
+          <input type="number" id="calc-pct" placeholder="ej: 55">
+        </div>
+        <div class="form-group">
+          <label>RIN (pulg)</label>
+          <input type="number" id="calc-r" placeholder="ej: 16">
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-red" onclick="calculate()">CALCULAR</button>
+      <button class="btn btn-outline" onclick="toggleManual()">Entrada manual</button>
+    </div>
+    <div id="calc-result" style="display:none" class="result-box">
+      <div class="result-value" id="result-total">—</div>
+      <div class="result-label" id="result-detail">kg totales</div>
+    </div>
+  </div>
+
+  <!-- Tabla de referencias -->
+  <div class="card">
+    <div class="card-title">📊 Tabla de Referencias</div>
+    <table id="tire-table">
+      <thead>
+        <tr><th>REFERENCIA</th><th>Kg POLÍMERO</th><th></th></tr>
+      </thead>
+      <tbody id="tire-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── NUEVA GARANTÍA ─── -->
+<div id="tab-garantia" class="tab-panel">
+  <div id="garantia-success" class="success-panel">
+    <div style="color:#27ae60; font-size:14px; margin-bottom:4px;">✅ Garantía creada exitosamente</div>
+    <div class="num" id="success-num">#501</div>
+    <div style="margin: 12px 0; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-green" onclick="downloadPdf()">⬇ Descargar PDF</button>
+      <button class="btn btn-outline" onclick="showEmailModal()">✉ Enviar por correo</button>
+      <button class="btn btn-red" onclick="resetGarantia()">+ Nueva Garantía</button>
+    </div>
+  </div>
+  <div id="garantia-form">
+  <div class="card">
+    <div class="card-title">📄 Datos de la Garantía</div>
+    <div id="g-alert" class="alert"></div>
+    <div class="form-grid-3">
+      <div class="form-group">
+        <label>PLACA</label>
+        <input type="text" id="g-placa" placeholder="ABC-123">
+      </div>
+      <div class="form-group">
+        <label>MARCA LLANTA</label>
+        <input type="text" id="g-marca" placeholder="Michelin, Pirelli...">
+      </div>
+      <div class="form-group">
+        <label>REF. LLANTA</label>
+        <input type="text" id="g-ref" placeholder="205/55R16">
+      </div>
+      <div class="form-group">
+        <label>KILÓMETROS</label>
+        <input type="text" id="g-km" placeholder="12,500">
+      </div>
+      <div class="form-group">
+        <label>FECHA</label>
+        <input type="text" id="g-fecha">
+      </div>
+      <div class="form-group">
+        <label>TIPO DE LLANTA</label>
+        <div class="radio-group" style="margin-top:4px;">
+          <label class="radio-label selected" onclick="selectTipo('nueva', this)">
+            <input type="radio" name="tipo" value="nueva" checked> Nueva
+          </label>
+          <label class="radio-label" onclick="selectTipo('usada', this)">
+            <input type="radio" name="tipo" value="usada"> Usada
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">🛞 % Desgaste por Llanta</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>% LLANTA 1</label>
+        <input type="text" id="g-pct1" placeholder="ej: 90%">
+      </div>
+      <div class="form-group">
+        <label>% LLANTA 2</label>
+        <input type="text" id="g-pct2" placeholder="ej: 85%">
+      </div>
+      <div class="form-group">
+        <label>% LLANTA 3</label>
+        <input type="text" id="g-pct3" placeholder="ej: 90%">
+      </div>
+      <div class="form-group">
+        <label>% LLANTA 4</label>
+        <input type="text" id="g-pct4" placeholder="ej: 80%">
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">✅ Servicios y Observaciones</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>ALINEACIÓN</label>
+        <div class="radio-group">
+          <label class="radio-label" onclick="selectCheck('alin', 'si', this)">
+            <input type="radio" name="alin" value="si"> ✓ SÍ
+          </label>
+          <label class="radio-label selected" onclick="selectCheck('alin', 'no', this)">
+            <input type="radio" name="alin" value="no" checked> ✗ NO
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>BALANCEO</label>
+        <div class="radio-group">
+          <label class="radio-label" onclick="selectCheck('bal', 'si', this)">
+            <input type="radio" name="bal" value="si"> ✓ SÍ
+          </label>
+          <label class="radio-label selected" onclick="selectCheck('bal', 'no', this)">
+            <input type="radio" name="bal" value="no" checked> ✗ NO
+          </label>
+        </div>
+      </div>
+      <div class="form-group form-full">
+        <label>OBSERVACIONES</label>
+        <textarea id="g-obs" placeholder="Notas adicionales..."></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-red" onclick="submitGarantia()">GENERAR GARANTÍA Y PDF</button>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- ─── HISTORIAL ─── -->
+<div id="tab-historial" class="tab-panel">
+  <div class="card">
+    <div class="card-title">📋 Historial de Garantías</div>
+    <table>
+      <thead>
+        <tr><th>#</th><th>PLACA</th><th>MARCA</th><th>FECHA</th><th>TIPO</th><th>USUARIO</th><th></th></tr>
+      </thead>
+      <tbody id="hist-tbody">
+        <tr><td colspan="7" style="text-align:center; color:#aaa; padding:30px;">Cargando...</td></tr>
+      </tbody>
+    </table>
+    <div class="pagination" id="hist-pagination"></div>
+  </div>
+</div>
+
+<!-- ─── ADMIN USUARIOS ─── -->
+{% if role == 'admin' %}
+<div id="tab-admin" class="tab-panel">
+  <div class="card">
+    <div class="card-title">⚙️ Gestión de Usuarios</div>
+    <div id="admin-alert" class="alert"></div>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>USUARIO</th><th>ROL</th><th>ACCIONES</th></tr>
+      </thead>
+      <tbody id="users-tbody">
+        <tr><td colspan="4" style="text-align:center; color:#aaa; padding:20px;">Cargando...</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:20px; padding-top:16px; border-top:1px solid #f0f0f0;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Crear nuevo usuario</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>USUARIO</label>
+          <input type="text" id="new-username" placeholder="nombre_usuario">
+        </div>
+        <div class="form-group">
+          <label>CONTRASEÑA</label>
+          <input type="password" id="new-password" placeholder="••••••••">
+        </div>
+        <div class="form-group">
+          <label>ROL</label>
+          <select id="new-role">
+            <option value="operario">Operario</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-red" onclick="createUser()">CREAR USUARIO</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- EMAIL MODAL -->
+<div class="modal-overlay" id="emailModal">
+  <div class="modal">
+    <div class="modal-title">✉ Enviar Garantía por Correo</div>
+    <div class="form-group">
+      <label>CORREO DEL CLIENTE</label>
+      <input type="email" id="email-input" placeholder="cliente@email.com">
+    </div>
+    <div id="email-msg" class="alert"></div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-red" onclick="sendEmail()">ENVIAR</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentGarantiaNum = null;
+let currentPage = 1;
+let tipoLlanta = 'nueva';
+
+// Init
+window.addEventListener('DOMContentLoaded', async () => {
+  // Set today's date
+  const today = new Date();
+  document.getElementById('g-fecha').value =
+    `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+  // Load tire refs
+  const res = await fetch('/api/tires');
+  const tires = await res.json();
+  const sel = document.getElementById('calc-ref');
+  tires.forEach(t => {
+    const opt = document.createElement('option'); opt.value = t; opt.textContent = t; sel.appendChild(opt);
+  });
+  // Populate table
+  const tbody = document.getElementById('tire-tbody');
+  const TIRE_DATA = {};
+  tires.forEach(t => {
+    const row = tbody.insertRow();
+    row.innerHTML = `<td><b>${t}</b></td><td>—</td>
+      <td><button class="btn btn-outline btn-sm" onclick="useRef('${t}')">Usar</button></td>`;
+  });
+  // Pre-fetch kg values
+  for(const t of tires) {
+    const r = await fetch('/api/calculate', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({referencia: t, cantidad: 1})});
+    const d = await r.json();
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(row => { if(row.cells[0].textContent === t) row.cells[1].textContent = d.kg_por_llanta + ' Kg'; });
+  }
+});
+
+function useRef(ref) {
+  switchTab('calc');
+  document.getElementById('calc-ref').value = ref;
+  document.getElementById('g-ref').value = ref;
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  const idx = ['calc','garantia','historial','admin'].indexOf(name);
+  document.querySelectorAll('.tab')[idx]?.classList.add('active');
+  if(name === 'historial') loadHistorial(1);
+  if(name === 'admin') loadUsers();
+}
+
+function toggleManual() {
+  const el = document.getElementById('manual-calc');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function calcRefChange() {
+  document.getElementById('manual-calc').style.display = 'none';
+}
+
+async function calculate() {
+  const ref = document.getElementById('calc-ref').value;
+  const qty = parseInt(document.getElementById('calc-qty').value) || 1;
+  const w = document.getElementById('calc-w').value;
+  const pct = document.getElementById('calc-pct').value;
+  const r = document.getElementById('calc-r').value;
+  const body = ref ? {referencia: ref, cantidad: qty} : {w, pct, r, cantidad: qty};
+  const res = await fetch('/api/calculate', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+  });
+  const d = await res.json();
+  if(d.error) { alert(d.error); return; }
+  document.getElementById('result-total').textContent = d.total_kg + ' Kg';
+  document.getElementById('result-detail').textContent =
+    `${d.cantidad} llanta(s) × ${d.kg_por_llanta} Kg/llanta`;
+  document.getElementById('calc-result').style.display = 'block';
+}
+
+function selectTipo(val, el) {
+  tipoLlanta = val;
+  document.querySelectorAll('[onclick^="selectTipo"]').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function selectCheck(name, val, el) {
+  document.querySelectorAll(`[onclick^="selectCheck('${name}']`).forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function getRadioVal(name) {
+  const checked = document.querySelector(`input[name="${name}"]:checked`);
+  return checked ? checked.value : 'no';
+}
+
+async function submitGarantia() {
+  const data = {
+    placa: document.getElementById('g-placa').value.trim().toUpperCase(),
+    marca: document.getElementById('g-marca').value.trim(),
+    ref_llanta: document.getElementById('g-ref').value.trim(),
+    km: document.getElementById('g-km').value.trim(),
+    fecha: document.getElementById('g-fecha').value.trim(),
+    tipo_llanta: tipoLlanta,
+    pct_llanta_1: document.getElementById('g-pct1').value.trim(),
+    pct_llanta_2: document.getElementById('g-pct2').value.trim(),
+    pct_llanta_3: document.getElementById('g-pct3').value.trim(),
+    pct_llanta_4: document.getElementById('g-pct4').value.trim(),
+    alineacion: getRadioVal('alin'),
+    balanceo: getRadioVal('bal'),
+    observaciones: document.getElementById('g-obs').value.trim()
+  };
+  if(!data.placa) { showAlert('g-alert', 'La placa es requerida.', 'error'); return; }
+  const res = await fetch('/api/garantia', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+  });
+  const d = await res.json();
+  if(d.success) {
+    currentGarantiaNum = d.numero;
+    document.getElementById('success-num').textContent = '#' + d.numero;
+    document.getElementById('garantia-form').style.display = 'none';
+    document.getElementById('garantia-success').style.display = 'block';
+  } else {
+    showAlert('g-alert', d.error || 'Error al crear garantía.', 'error');
+  }
+}
+
+function resetGarantia() {
+  document.getElementById('garantia-form').style.display = 'block';
+  document.getElementById('garantia-success').style.display = 'none';
+  document.getElementById('g-placa').value = '';
+  document.getElementById('g-marca').value = '';
+  document.getElementById('g-ref').value = '';
+  document.getElementById('g-km').value = '';
+  document.getElementById('g-pct1').value = '';
+  document.getElementById('g-pct2').value = '';
+  document.getElementById('g-pct3').value = '';
+  document.getElementById('g-pct4').value = '';
+  document.getElementById('g-obs').value = '';
+  currentGarantiaNum = null;
+}
+
+function downloadPdf() {
+  if(!currentGarantiaNum) return;
+  window.open(`/api/garantia/${currentGarantiaNum}/pdf`, '_blank');
+}
+
+function showEmailModal() {
+  document.getElementById('emailModal').classList.add('show');
+  document.getElementById('email-input').value = '';
+  document.getElementById('email-msg').style.display = 'none';
+}
+function closeModal() { document.getElementById('emailModal').classList.remove('show'); }
+
+async function sendEmail() {
+  const email = document.getElementById('email-input').value.trim();
+  if(!email) { showAlert('email-msg', 'Ingresa un correo.', 'error'); return; }
+  const res = await fetch(`/api/garantia/${currentGarantiaNum}/email`, {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email})
+  });
+  const d = await res.json();
+  if(d.success) {
+    showAlert('email-msg', `✅ Garantía enviada a ${email}`, 'success');
+    setTimeout(closeModal, 2000);
+  } else {
+    showAlert('email-msg', d.error || 'Error al enviar.', 'error');
+  }
+}
+
+async function loadHistorial(page) {
+  currentPage = page;
+  const res = await fetch(`/api/garantias?page=${page}`);
+  const d = await res.json();
+  const tbody = document.getElementById('hist-tbody');
+  if(!d.items.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:30px;">No hay garantías aún</td></tr>';
+    return;
+  }
+  tbody.innerHTML = d.items.map(g => `
+    <tr>
+      <td><b>#${g.numero}</b></td>
+      <td>${g.placa || '—'}</td>
+      <td>${g.marca || '—'}</td>
+      <td>${g.fecha || '—'}</td>
+      <td><span class="badge badge-${g.tipo}">${g.tipo}</span></td>
+      <td>${g.created_by || '—'}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="window.open('/api/garantia/${g.numero}/pdf','_blank')">PDF</button>
+      </td>
+    </tr>
+  `).join('');
+  // Pagination
+  const pag = document.getElementById('hist-pagination');
+  pag.innerHTML = '';
+  for(let i = 1; i <= d.pages; i++) {
+    pag.innerHTML += `<button class="page-btn ${i===d.current?'active':''}" onclick="loadHistorial(${i})">${i}</button>`;
+  }
+}
+
+async function loadUsers() {
+  const res = await fetch('/api/users');
+  const users = await res.json();
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>${u.id}</td>
+      <td><b>${u.username}</b></td>
+      <td><span class="badge badge-${u.role}">${u.role}</span></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="changePass(${u.id}, '${u.username}')">Cambiar contraseña</button>
+        <button class="btn btn-sm" style="background:#222222;color:#fff;" onclick="deleteUser(${u.id}, '${u.username}')">Eliminar</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function createUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const password = document.getElementById('new-password').value;
+  const role = document.getElementById('new-role').value;
+  if(!username || !password) { showAlert('admin-alert', 'Completa todos los campos.', 'error'); return; }
+  const res = await fetch('/api/users', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({username, password, role})
+  });
+  const d = await res.json();
+  if(d.success) {
+    showAlert('admin-alert', `✅ Usuario "${username}" creado.`, 'success');
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-password').value = '';
+    loadUsers();
+  } else {
+    showAlert('admin-alert', d.error || 'Error.', 'error');
+  }
+}
+
+async function deleteUser(id, name) {
+  if(!confirm(`¿Eliminar usuario "${name}"?`)) return;
+  const res = await fetch(`/api/users/${id}`, {method: 'DELETE'});
+  const d = await res.json();
+  if(d.success) { loadUsers(); }
+  else showAlert('admin-alert', d.error || 'Error.', 'error');
+}
+
+async function changePass(id, name) {
+  const pw = prompt(`Nueva contraseña para "${name}":`);
+  if(!pw) return;
+  const res = await fetch(`/api/users/${id}/password`, {
+    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({password: pw})
+  });
+  const d = await res.json();
+  if(d.success) showAlert('admin-alert', '✅ Contraseña actualizada.', 'success');
+  else showAlert('admin-alert', d.error || 'Error.', 'error');
+}
+
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `alert alert-${type}`;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 4000);
+}
+</script>
+</body>
+</html>

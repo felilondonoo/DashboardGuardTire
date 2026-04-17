@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guardtire – Acceso</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #1a1a1a;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    width: 380px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .card-header {
+    background: #111111;
+    padding: 32px;
+    text-align: center;
+  }
+  .logo-text {
+    color: #fff;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 2px;
+  }
+  .logo-sub {
+    color: rgba(255,255,255,0.8);
+    font-size: 12px;
+    letter-spacing: 3px;
+    margin-top: 4px;
+  }
+  .card-body { padding: 32px; }
+  .form-group { margin-bottom: 18px; }
+  label { display: block; font-size: 12px; color: #555; margin-bottom: 6px; font-weight: 600; letter-spacing: 0.5px; }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+  input:focus { border-color: #111111; }
+  .btn {
+    width: 100%;
+    padding: 13px;
+    background: #111111;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: background 0.2s;
+    margin-top: 4px;
+  }
+  .btn:hover { background: #333333; }
+  .error {
+    background: #fdf0ef;
+    border: 1px solid #111111;
+    color: #111111;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <div class="logo-text">GUARDTIRE</div>
+    <div class="logo-sub">ANTIPINCHAZOS</div>
+  </div>
+  <div class="card-body">
+    <div class="error" id="errorMsg"></div>
+    <div class="form-group">
+      <label>USUARIO</label>
+      <input type="text" id="username" placeholder="Ingresa tu usuario" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>CONTRASEÑA</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn" onclick="doLogin()">INGRESAR</button>
+  </div>
+</div>
+<script>
+  document.addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+  async function doLogin() {
+    const u = document.getElementById('username').value.trim();
+    const p = document.getElementById('password').value;
+    if (!u || !p) { showError('Ingresa usuario y contraseña.'); return; }
+    const res = await fetch('/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: u, password: p})
+    });
+    if (res.ok) {
+      window.location.href = '/dashboard';
+    } else {
+      const d = await res.json();
+      showError(d.error || 'Error al ingresar.');
+    }
+  }
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+</script>
+</body>
+</html>
