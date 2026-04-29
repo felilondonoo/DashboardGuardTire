@@ -491,7 +491,7 @@ function selectTipo(val, el) {
 }
 
 function selectCheck(name, val, el) {
-  document.querySelectorAll(`[onclick^="selectCheck('${name}']`).forEach(e => e.classList.remove('selected'));
+  el.closest('.radio-group').querySelectorAll('.radio-label').forEach(e => e.classList.remove('selected'));
   el.classList.add('selected');
 }
 
