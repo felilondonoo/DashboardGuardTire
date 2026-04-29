@@ -498,17 +498,17 @@ def generate_pdf(g):
 
 # ─── EMAIL ─────────────────────────────────────────────────────────────────────
 def send_email(to_email, g):
-    smtp_host = os.environ.get('SMTP_HOST', 'smtp.hostinger.com')
-    smtp_port = int(os.environ.get('SMTP_PORT', 465))
-    smtp_user = os.environ.get('SMTP_USER', '')
-    smtp_pass = os.environ.get('SMTP_PASS', '')
+    import resend
+    resend.api_key = os.environ.get('RESEND_API_KEY', '')
 
-    msg = MIMEMultipart()
-    msg['From'] = smtp_user
-    msg['To'] = to_email
-    msg['Subject'] = f'Garantía Guardtire #{g.numero} - {g.placa}'
+    with open(g.pdf_path, 'rb') as f:
+        pdf_bytes = f.read()
 
-    body = f"""Estimado cliente,
+    params = {
+        "from": "Guardtire <garantias@guardtire.com>",
+        "to": [to_email],
+        "subject": f"Garantía Guardtire #{g.numero} - {g.placa}",
+        "text": f"""Estimado cliente,
 
 Adjunto encontrará el certificado de garantía #{g.numero} para el vehículo con placa {g.placa}.
 
@@ -522,43 +522,17 @@ Para cualquier reclamación contáctenos:
 ✉ garantias@guardtire.com
 
 Guardtire AntiPinchazos
-"""
-    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+""",
+        "attachments": [
+            {
+                "filename": f"garantia_{g.numero}.pdf",
+                "content": list(pdf_bytes),
+            }
+        ],
+    }
 
-    with open(g.pdf_path, 'rb') as f:
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(f.read())
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', f'attachment; filename=garantia_{g.numero}.pdf')
-        msg.attach(part)
-
-    # Intento 1: STARTTLS en puerto 587
-    try:
-        print(f"SMTP: intentando STARTTLS {smtp_host}:587")
-        with smtplib.SMTP(smtp_host, 587, timeout=20) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, to_email, msg.as_string())
-            print("SMTP: email enviado vía STARTTLS 587")
-            return
-    except Exception as e1:
-        print(f"SMTP STARTTLS 587 falló: {e1}")
-
-    # Intento 2: SSL directo en puerto 465
-    try:
-        print(f"SMTP: intentando SSL {smtp_host}:{smtp_port}")
-        ctx = ssl.create_default_context()
-        with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=20) as server:
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, to_email, msg.as_string())
-            print("SMTP: email enviado vía SSL 465")
-            return
-    except Exception as e2:
-        print(f"SMTP SSL 465 falló: {e2}")
-        raise Exception(f"No se pudo enviar el email. Error 587: {e1} | Error 465: {e2}")
-
+    response = resend.Emails.send(params)
+    print(f"Resend response: {response}")
 # ─── INIT ──────────────────────────────────────────────────────────────────────
 def init_db():
     with app.app_context():
