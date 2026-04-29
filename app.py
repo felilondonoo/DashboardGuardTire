@@ -7,7 +7,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 from reportlab.lib.units import cm, mm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
-import os, datetime, io, smtplib, json
+import os, datetime, io, smtplib, json, ssl, traceback
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
@@ -200,8 +200,15 @@ def create_garantia():
 @login_required
 def download_pdf(numero):
     g = Garantia.query.filter_by(numero=numero).first_or_404()
+    # Regenerar PDF si Railway lo borró en redeploy
     if not g.pdf_path or not os.path.exists(g.pdf_path):
-        return jsonify({'error': 'PDF no encontrado'}), 404
+        try:
+            pdf_path = generate_pdf(g)
+            g.pdf_path = pdf_path
+            db.session.commit()
+        except Exception as e:
+            print("ERROR GENERANDO PDF:", traceback.format_exc())
+            return jsonify({'error': f'Error generando PDF: {str(e)}'}), 500
     return send_file(g.pdf_path, as_attachment=True,
                      download_name=f'garantia_{numero}.pdf',
                      mimetype='application/pdf')
@@ -212,12 +219,22 @@ def send_email_garantia(numero):
     data = request.json
     email_to = data.get('email')
     g = Garantia.query.filter_by(numero=numero).first_or_404()
+
+    # Regenerar PDF si Railway lo borró en redeploy
     if not g.pdf_path or not os.path.exists(g.pdf_path):
-        return jsonify({'error': 'PDF no encontrado'}), 404
+        try:
+            pdf_path = generate_pdf(g)
+            g.pdf_path = pdf_path
+            db.session.commit()
+        except Exception as e:
+            print("ERROR GENERANDO PDF:", traceback.format_exc())
+            return jsonify({'error': f'Error generando PDF: {str(e)}'}), 500
+
     try:
         send_email(email_to, g)
         return jsonify({'success': True})
     except Exception as e:
+        print("ERROR SMTP:", traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/garantias')
@@ -457,7 +474,7 @@ def generate_pdf(g):
     support_data = [[
         Paragraph('SOPORTE TÉCNICO', label_style),
         Paragraph('Tel: 300 412 6814', body_style),
-        Paragraph('guardtire2025@gmail.com', body_style),
+        Paragraph('garantias@guardtire.com', body_style),
     ]]
     support_table = Table(support_data, colWidths=[4*cm, 5*cm, 9*cm])
     support_table.setStyle(TableStyle([
@@ -502,7 +519,7 @@ Fecha: {g.fecha}
 
 Para cualquier reclamación contáctenos:
 📞 300 412 6814
-✉ guardtire2025@gmail.com
+✉ garantias@guardtire.com
 
 Guardtire AntiPinchazos
 """
@@ -515,19 +532,32 @@ Guardtire AntiPinchazos
         part.add_header('Content-Disposition', f'attachment; filename=garantia_{g.numero}.pdf')
         msg.attach(part)
 
-    # Try TLS (port 587) first - Railway blocks 465 SSL
+    # Intento 1: STARTTLS en puerto 587
     try:
-        with smtplib.SMTP(smtp_host, 587, timeout=15) as server:
+        print(f"SMTP: intentando STARTTLS {smtp_host}:587")
+        with smtplib.SMTP(smtp_host, 587, timeout=20) as server:
             server.ehlo()
             server.starttls()
             server.ehlo()
             server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_user, to_email, msg.as_string())
-    except Exception:
-        # Fallback to SSL port 465
-        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15) as server:
+            print("SMTP: email enviado vía STARTTLS 587")
+            return
+    except Exception as e1:
+        print(f"SMTP STARTTLS 587 falló: {e1}")
+
+    # Intento 2: SSL directo en puerto 465
+    try:
+        print(f"SMTP: intentando SSL {smtp_host}:{smtp_port}")
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=20) as server:
             server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_user, to_email, msg.as_string())
+            print("SMTP: email enviado vía SSL 465")
+            return
+    except Exception as e2:
+        print(f"SMTP SSL 465 falló: {e2}")
+        raise Exception(f"No se pudo enviar el email. Error 587: {e1} | Error 465: {e2}")
 
 # ─── INIT ──────────────────────────────────────────────────────────────────────
 def init_db():
