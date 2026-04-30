@@ -16,6 +16,9 @@ from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'guardtire-secret-2025')
+app.config['SESSION_COOKIE_DOMAIN'] = 'dashboard.guardtire.com'
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 # Fix postgres:// -> postgresql:// and add reconnect/SSL options
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///guardtire.db')
 if _db_url.startswith('postgres://'):
