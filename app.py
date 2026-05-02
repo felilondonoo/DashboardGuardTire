@@ -427,7 +427,26 @@ def generate_pdf(g):
     story.append(Paragraph('2. Decreto 1163 de 2014: Reglamenta garantías y responsabilidades posventa.', body_style))
     story.append(Paragraph('3. Resolución 4100 de 2009 (Min. Transporte): Normas técnicas para neumáticos.', body_style))
     story.append(Spacer(1, 5))
-
+    #Calidad
+    story.append(Paragraph('POLÍTICA DE CALIDAD', section_style))
+    story.append(Paragraph('Recepción de producto por parte del cliente', body_style))
+    story.append(Paragraph('Verificación de los neumáticos/llantas tratadas con el polímero al momento de la entrega (Art. 20 Ley 1480/2011).', body_style))
+    story.append(Paragraph('Aceptación a la instalación de las llantas con el producto aplicado en condiciones óptimas.', body_style))
+    story.append(Spacer(1, 5))
+     # ── RECOMENDACIONES ─────────────────────────────────────────────────────────
+    story.append(Paragraph('RECOMENDACIONES', section_style))
+    for rec in [
+        '• Balancear la llanta después de aplicarse el producto.',
+        '• Monitorear la presión de aire según indicaciones del fabricante.',
+        '• Alinear el vehículo cada 6 meses o 10,000 Km.',
+        '• No rodar la llanta más de 20 metros sin presión.',
+    ]:
+        story.append(Paragraph(rec, body_style))
+    story.append(Spacer(1, 5))
+     # ── RECLAMACIONES ─────────────────────────────────────────────────────────
+    story.append(Paragraph('RECLAMACIONES', section_style))
+    story.append(Paragraph('Nuestro departamento técnico atenderá el caso en máximo 10 días hábiles (Art. 26 Decreto 1163/2014).', body_style))
+    story.append(Spacer(1, 5))
     # ── TABLA VIGENCIA ──────────────────────────────────────────────────────────
     hdr_style = ParagraphStyle('hdr', fontName='Helvetica-Bold', fontSize=8, textColor=WHITE)
     vig_data = [
@@ -453,16 +472,7 @@ def generate_pdf(g):
     story.append(vig_table)
     story.append(Spacer(1, 5))
 
-    # ── RECOMENDACIONES ─────────────────────────────────────────────────────────
-    story.append(Paragraph('RECOMENDACIONES', section_style))
-    for rec in [
-        '• Balancear la llanta después de aplicarse el producto.',
-        '• Monitorear la presión de aire según indicaciones del fabricante.',
-        '• Alinear el vehículo cada 6 meses o 10,000 Km.',
-        '• No rodar la llanta más de 20 metros sin presión.',
-    ]:
-        story.append(Paragraph(rec, body_style))
-    story.append(Spacer(1, 5))
+   
 
     # ── PROCESO RECLAMACIÓN ─────────────────────────────────────────────────────
     story.append(Paragraph('PROCESO DE RECLAMACIÓN', section_style))
@@ -470,7 +480,9 @@ def generate_pdf(g):
     story.append(Paragraph('2. Evaluación: Verificación por Guardtire Antipinchazos.', body_style))
     story.append(Paragraph('3. Solución: Respuesta en máximo 10 días hábiles (Art. 26 Decreto 1163/2014).', body_style))
     story.append(Spacer(1, 6))
-
+ # ── SOPORTE ─────────────────────────────────────────────────────────────────
+    story.append(Paragraph('NOTA ACLARATORIA', section_style))
+    story.append(Paragraph('Los estandares de mantenimiento del vehículo se deben mantener según indicaciones del fabricante y la aplicación del polímero no los afecta', body_style))
     # ── SOPORTE ─────────────────────────────────────────────────────────────────
     story.append(HRFlowable(width="100%", thickness=0.5, color=GRAY_MID))
     story.append(Spacer(1, 5))
@@ -513,7 +525,7 @@ def send_email(to_email, g):
         "subject": f"Garantía Guardtire #{g.numero} - {g.placa}",
         "text": f"""Estimado cliente,
 
-Adjunto encontrará el certificado de garantía #{g.numero} para el vehículo con placa {g.placa}.
+Adjunto encontrará el certificado de garantía #{g.numero} del polimero para :
 
 Vehículo: {g.placa}
 Marca llanta: {g.marca}
