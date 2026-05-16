@@ -255,17 +255,17 @@ tr:hover td { background: #fafafa; }
       </div>
       <div class="form-group">
         <label>KILÓMETROS</label>
-        <input type="text" id="g-km" placeholder="12,500">
+        <input type="text" id="g-km" inputmode="numeric" placeholder="12500" oninput="onlyDigits(this)">
       </div>
       <div class="form-group">
         <label>FECHA</label>
-        <input type="text" id="g-fecha">
+        <input type="date" id="g-fecha">
       </div>
       <div class="form-group">
         <label>TIPO DE LLANTA</label>
         <div class="radio-group" style="margin-top:4px;">
-          <label class="radio-label selected" onclick="selectTipo('nueva', this)">
-            <input type="radio" name="tipo" value="nueva" checked> Nueva
+          <label class="radio-label" onclick="selectTipo('nueva', this)">
+            <input type="radio" name="tipo" value="nueva"> Nueva
           </label>
           <label class="radio-label" onclick="selectTipo('usada', this)">
             <input type="radio" name="tipo" value="usada"> Usada
@@ -275,23 +275,23 @@ tr:hover td { background: #fafafa; }
     </div>
   </div>
   <div class="card">
-    <div class="card-title">🛞 % Desgaste por Llanta</div>
+    <div class="card-title">🛞 % por Llanta</div>
     <div class="form-grid">
       <div class="form-group">
         <label>% LLANTA 1</label>
-        <input type="text" id="g-pct1" placeholder="ej: 90%">
+        <input type="text" id="g-pct1" inputmode="numeric" maxlength="3" placeholder="ej: 90" oninput="onlyDigits(this, 100)">
       </div>
       <div class="form-group">
         <label>% LLANTA 2</label>
-        <input type="text" id="g-pct2" placeholder="ej: 85%">
+        <input type="text" id="g-pct2" inputmode="numeric" maxlength="3" placeholder="ej: 85" oninput="onlyDigits(this, 100)">
       </div>
       <div class="form-group">
         <label>% LLANTA 3</label>
-        <input type="text" id="g-pct3" placeholder="ej: 90%">
+        <input type="text" id="g-pct3" inputmode="numeric" maxlength="3" placeholder="ej: 90" oninput="onlyDigits(this, 100)">
       </div>
       <div class="form-group">
         <label>% LLANTA 4</label>
-        <input type="text" id="g-pct4" placeholder="ej: 80%">
+        <input type="text" id="g-pct4" inputmode="numeric" maxlength="3" placeholder="ej: 80" oninput="onlyDigits(this, 100)">
       </div>
     </div>
   </div>
@@ -304,8 +304,8 @@ tr:hover td { background: #fafafa; }
           <label class="radio-label" onclick="selectCheck('alin', 'si', this)">
             <input type="radio" name="alin" value="si"> ✓ SÍ
           </label>
-          <label class="radio-label selected" onclick="selectCheck('alin', 'no', this)">
-            <input type="radio" name="alin" value="no" checked> ✗ NO
+          <label class="radio-label" onclick="selectCheck('alin', 'no', this)">
+            <input type="radio" name="alin" value="no"> ✗ NO
           </label>
         </div>
       </div>
@@ -315,8 +315,8 @@ tr:hover td { background: #fafafa; }
           <label class="radio-label" onclick="selectCheck('bal', 'si', this)">
             <input type="radio" name="bal" value="si"> ✓ SÍ
           </label>
-          <label class="radio-label selected" onclick="selectCheck('bal', 'no', this)">
-            <input type="radio" name="bal" value="no" checked> ✗ NO
+          <label class="radio-label" onclick="selectCheck('bal', 'no', this)">
+            <input type="radio" name="bal" value="no"> ✗ NO
           </label>
         </div>
       </div>
@@ -408,14 +408,28 @@ tr:hover td { background: #fafafa; }
 <script>
 let currentGarantiaNum = null;
 let currentPage = 1;
-let tipoLlanta = 'nueva';
+let tipoLlanta = '';
+
+function onlyDigits(el, max) {
+  let v = el.value.replace(/\D+/g, '');
+  if (max !== undefined && v !== '') {
+    v = String(Math.min(parseInt(v, 10), max));
+  }
+  el.value = v;
+}
+
+function setTodayDate() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  document.getElementById('g-fecha').value = `${yyyy}-${mm}-${dd}`;
+}
 
 // Init
 window.addEventListener('DOMContentLoaded', async () => {
-  // Set today's date
-  const today = new Date();
-  document.getElementById('g-fecha').value =
-    `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+  // Set today's date on the datepicker (value format YYYY-MM-DD)
+  setTodayDate();
   // Load tire refs
   const res = await fetch('/api/tires');
   const tires = await res.json();
@@ -429,7 +443,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   tires.forEach(t => {
     const row = tbody.insertRow();
     row.innerHTML = `<td><b>${t}</b></td><td>—</td>
-      <td><button class="btn btn-outline btn-sm" onclick="useRef('${t}')">Usar</button></td>`;
+      <td></td>`;
   });
   // Pre-fetch kg values
   for(const t of tires) {
@@ -497,16 +511,22 @@ function selectCheck(name, val, el) {
 
 function getRadioVal(name) {
   const checked = document.querySelector(`input[name="${name}"]:checked`);
-  return checked ? checked.value : 'no';
+  return checked ? checked.value : '';
 }
 
 async function submitGarantia() {
+  const rawFecha = document.getElementById('g-fecha').value.trim();
+  let fecha = rawFecha;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawFecha)) {
+    const [y, m, d] = rawFecha.split('-');
+    fecha = `${d}/${m}/${y}`;
+  }
   const data = {
     placa: document.getElementById('g-placa').value.trim().toUpperCase(),
     marca: document.getElementById('g-marca').value.trim(),
     ref_llanta: document.getElementById('g-ref').value.trim(),
     km: document.getElementById('g-km').value.trim(),
-    fecha: document.getElementById('g-fecha').value.trim(),
+    fecha: fecha,
     tipo_llanta: tipoLlanta,
     pct_llanta_1: document.getElementById('g-pct1').value.trim(),
     pct_llanta_2: document.getElementById('g-pct2').value.trim(),
@@ -516,7 +536,22 @@ async function submitGarantia() {
     balanceo: getRadioVal('bal'),
     observaciones: document.getElementById('g-obs').value.trim()
   };
-  if(!data.placa) { showAlert('g-alert', 'La placa es requerida.', 'error'); return; }
+  const missing = [];
+  if(!data.placa)        missing.push('Placa');
+  if(!data.ref_llanta)   missing.push('Ref. llanta');
+  if(!data.km)           missing.push('Kilómetros');
+  if(!data.fecha)        missing.push('Fecha');
+  if(!data.tipo_llanta)  missing.push('Tipo de llanta');
+  if(!data.pct_llanta_1) missing.push('% Llanta 1');
+  if(!data.pct_llanta_2) missing.push('% Llanta 2');
+  if(!data.pct_llanta_3) missing.push('% Llanta 3');
+  if(!data.pct_llanta_4) missing.push('% Llanta 4');
+  if(!data.alineacion)   missing.push('Alineación');
+  if(!data.balanceo)     missing.push('Balanceo');
+  if(missing.length) {
+    showAlert('g-alert', 'Faltan campos obligatorios: ' + missing.join(', ') + '.', 'error');
+    return;
+  }
   const res = await fetch('/api/garantia', {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
   });
@@ -543,6 +578,10 @@ function resetGarantia() {
   document.getElementById('g-pct3').value = '';
   document.getElementById('g-pct4').value = '';
   document.getElementById('g-obs').value = '';
+  setTodayDate();
+  tipoLlanta = '';
+  document.querySelectorAll('input[name="tipo"], input[name="alin"], input[name="bal"]').forEach(i => i.checked = false);
+  document.querySelectorAll('.radio-label.selected').forEach(e => e.classList.remove('selected'));
   currentGarantiaNum = null;
 }
 
