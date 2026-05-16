@@ -383,6 +383,104 @@ def delete_garantia(numero):
     db.session.commit()
     return jsonify({'success': True})
 
+@app.route('/api/backup')
+@admin_required
+def backup():
+    users = [{'username': u.username, 'password_hash': u.password_hash, 'role': u.role,
+              'created_at': u.created_at.isoformat() if u.created_at else None}
+             for u in User.query.all()]
+    garantias = []
+    for g in Garantia.query.all():
+        garantias.append({
+            'numero': g.numero, 'placa': g.placa, 'marca': g.marca,
+            'ref_llanta': g.ref_llanta, 'km': g.km, 'fecha': g.fecha,
+            'pct_llanta_1': g.pct_llanta_1, 'pct_llanta_2': g.pct_llanta_2,
+            'pct_llanta_3': g.pct_llanta_3, 'pct_llanta_4': g.pct_llanta_4,
+            'alineacion': g.alineacion, 'balanceo': g.balanceo,
+            'observaciones': g.observaciones, 'tipo_llanta': g.tipo_llanta,
+            'created_by': g.created_by,
+            'created_at': g.created_at.isoformat() if g.created_at else None,
+        })
+    tpl = get_template()
+    payload = {
+        'version': 1,
+        'exported_at': datetime.datetime.utcnow().isoformat(),
+        'users': users,
+        'garantias': garantias,
+        'email_template': {'subject': tpl.subject, 'body': tpl.body},
+    }
+    buf = io.BytesIO()
+    buf.write(json.dumps(payload, ensure_ascii=False, indent=2).encode('utf-8'))
+    buf.seek(0)
+    fname = f"guardtire_backup_{datetime.date.today().strftime('%Y%m%d')}.json"
+    return send_file(buf, as_attachment=True, download_name=fname,
+                     mimetype='application/json')
+
+@app.route('/api/restore', methods=['POST'])
+@admin_required
+def restore():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No se recibió ningún archivo.'}), 400
+    f = request.files['file']
+    try:
+        data = json.loads(f.read().decode('utf-8'))
+    except Exception:
+        return jsonify({'error': 'El archivo no es un JSON válido.'}), 400
+    if not isinstance(data, dict) or 'version' not in data or 'users' not in data:
+        return jsonify({'error': 'El archivo no parece un backup válido de Guardtire.'}), 400
+    try:
+        Garantia.query.delete()
+        User.query.delete()
+        EmailTemplate.query.delete()
+        db.session.commit()
+
+        for u in data.get('users', []):
+            user = User(username=u['username'], role=u.get('role', 'operario'))
+            user.password_hash = u.get('password_hash', '')
+            if u.get('created_at'):
+                try:
+                    user.created_at = datetime.datetime.fromisoformat(u['created_at'])
+                except Exception:
+                    pass
+            db.session.add(user)
+
+        for g in data.get('garantias', []):
+            ga = Garantia(
+                numero=g['numero'],
+                placa=g.get('placa'), marca=g.get('marca'),
+                ref_llanta=g.get('ref_llanta'), km=g.get('km'),
+                fecha=g.get('fecha'),
+                pct_llanta_1=g.get('pct_llanta_1'), pct_llanta_2=g.get('pct_llanta_2'),
+                pct_llanta_3=g.get('pct_llanta_3'), pct_llanta_4=g.get('pct_llanta_4'),
+                alineacion=g.get('alineacion'), balanceo=g.get('balanceo'),
+                observaciones=g.get('observaciones'),
+                tipo_llanta=g.get('tipo_llanta'),
+                created_by=g.get('created_by'),
+            )
+            if g.get('created_at'):
+                try:
+                    ga.created_at = datetime.datetime.fromisoformat(g['created_at'])
+                except Exception:
+                    pass
+            db.session.add(ga)
+
+        tpl_data = data.get('email_template') or {}
+        tpl = EmailTemplate(
+            subject=tpl_data.get('subject', DEFAULT_EMAIL_SUBJECT),
+            body=tpl_data.get('body', DEFAULT_EMAIL_BODY),
+        )
+        db.session.add(tpl)
+        db.session.commit()
+
+        session.clear()
+        return jsonify({'success': True,
+                        'users_restored': len(data.get('users', [])),
+                        'garantias_restored': len(data.get('garantias', []))})
+    except Exception as e:
+        db.session.rollback()
+        print("ERROR EN RESTORE:", traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/garantias/export')
 @admin_required
 def export_garantias():

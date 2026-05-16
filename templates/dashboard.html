@@ -441,6 +441,24 @@ tr:hover td { background: #fafafa; }
 {% if role == 'admin' %}
 <div id="tab-admin" class="tab-panel">
   <div class="card">
+    <div class="card-title">💾 Copia de Seguridad</div>
+    <div id="backup-alert" class="alert"></div>
+    <p style="font-size:13px; color:#555; margin-bottom:12px;">
+      Descarga un archivo único con <b>todos los datos</b> (usuarios, garantías y plantilla de correo).
+      Guárdalo en Google Drive o un disco externo. Recomendado: <b>una vez por semana</b>.
+    </p>
+    <div class="btn-row">
+      <button class="btn btn-green" onclick="downloadBackup()">📥 Descargar copia de seguridad</button>
+      <input type="file" id="restore-file" accept="application/json,.json" style="display:none" onchange="restoreBackup(this)">
+      <button class="btn btn-outline" onclick="document.getElementById('restore-file').click()">📤 Restaurar copia</button>
+    </div>
+    <p style="font-size:12px; color:#888; margin-top:14px; line-height:1.5;">
+      ⚠ <b>Restaurar reemplaza TODOS los datos actuales</b> (usuarios, garantías y plantilla)
+      por los del archivo cargado. Después de restaurar, tendrás que iniciar sesión de nuevo
+      con las credenciales del backup.
+    </p>
+  </div>
+  <div class="card">
     <div class="card-title">⚙️ Gestión de Usuarios</div>
     <div id="admin-alert" class="alert"></div>
     <table>
@@ -837,6 +855,44 @@ async function saveTemplate() {
 
 function exportExcel() {
   window.open('/api/garantias/export', '_blank');
+}
+
+function downloadBackup() {
+  window.open('/api/backup', '_blank');
+}
+
+async function restoreBackup(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const ok = confirm(
+    '⚠ ATENCIÓN\n\n' +
+    'Esto reemplazará TODOS los datos actuales (usuarios, garantías, plantilla)\n' +
+    'por los del archivo seleccionado.\n\n' +
+    'Después de restaurar tendrás que iniciar sesión de nuevo.\n\n' +
+    '¿Continuar?'
+  );
+  if (!ok) { input.value = ''; return; }
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch('/api/restore', { method: 'POST', body: form });
+    const d = await res.json();
+    input.value = '';
+    if (d.success) {
+      alert(
+        '✅ Copia restaurada correctamente.\n\n' +
+        `Usuarios: ${d.users_restored}\n` +
+        `Garantías: ${d.garantias_restored}\n\n` +
+        'Vas a ser redirigido al login.'
+      );
+      window.location.href = '/login';
+    } else {
+      showAlert('backup-alert', d.error || 'Error al restaurar.', 'error');
+    }
+  } catch (e) {
+    input.value = '';
+    showAlert('backup-alert', 'Error de red al restaurar.', 'error');
+  }
 }
 
 async function openEditModal(num) {
