@@ -156,6 +156,9 @@ tr:hover td { background: #fafafa; }
     <div class="nav-sub">ANTIPINCHAZOS</div>
   </div>
   <div class="nav-right">
+    {% if role == 'admin' %}
+    <button class="logout-btn" onclick="openTemplateModal()">✉ Plantilla</button>
+    {% endif %}
     <span class="nav-user">👤 {{ username }}</span>
     <button class="logout-btn" onclick="window.location='/logout'">Salir</button>
   </div>
@@ -477,12 +480,34 @@ tr:hover td { background: #fafafa; }
 
 <!-- EMAIL MODAL -->
 <div class="modal-overlay" id="emailModal">
-  <div class="modal">
+  <div class="modal" style="width: 720px; max-height: 92vh; overflow-y: auto;">
     <div class="modal-title">✉ Enviar Garantía por Correo</div>
     <div class="form-group">
       <label>CORREO DEL CLIENTE</label>
       <input type="email" id="email-input" placeholder="cliente@email.com">
     </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label>ASUNTO</label>
+      <input type="text" id="email-subject">
+    </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label>MENSAJE (vista previa editable)</label>
+      <textarea id="email-body" style="min-height: 220px; font-family: inherit;"></textarea>
+    </div>
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer; font-size:12px; font-weight:700; color:#555; letter-spacing:0.5px;">VARIABLES DISPONIBLES</summary>
+      <table style="margin-top:8px; font-size:12px;">
+        <thead><tr><th>Elemento</th><th>Variable</th></tr></thead>
+        <tbody>
+          <tr><td>Número de garantía</td><td><code>((numero))</code></td></tr>
+          <tr><td>Placa</td><td><code>((placa))</code></td></tr>
+          <tr><td>Marca de llanta</td><td><code>((marca))</code></td></tr>
+          <tr><td>Referencia de llanta</td><td><code>((ref_llanta))</code></td></tr>
+          <tr><td>Fecha</td><td><code>((fecha))</code></td></tr>
+          <tr><td>Correo destinatario</td><td><code>((email))</code></td></tr>
+        </tbody>
+      </table>
+    </details>
     <div id="email-msg" class="alert"></div>
     <div class="modal-btns">
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
@@ -490,6 +515,42 @@ tr:hover td { background: #fafafa; }
     </div>
   </div>
 </div>
+
+{% if role == 'admin' %}
+<!-- TEMPLATE MODAL -->
+<div class="modal-overlay" id="templateModal">
+  <div class="modal" style="width: 720px; max-height: 92vh; overflow-y: auto;">
+    <div class="modal-title">✉ Plantilla de Correo</div>
+    <div style="font-size:12px; color:#666; margin-bottom:12px;">
+      Usa la notación <code>((variable))</code> en el asunto o el mensaje. Se reemplazan automáticamente al enviar.
+    </div>
+    <table style="margin-bottom:12px; font-size:12px;">
+      <thead><tr><th>Elemento</th><th>Variable</th></tr></thead>
+      <tbody>
+        <tr><td>Número de garantía</td><td><code>((numero))</code></td></tr>
+        <tr><td>Placa</td><td><code>((placa))</code></td></tr>
+        <tr><td>Marca de llanta</td><td><code>((marca))</code></td></tr>
+        <tr><td>Referencia de llanta</td><td><code>((ref_llanta))</code></td></tr>
+        <tr><td>Fecha</td><td><code>((fecha))</code></td></tr>
+        <tr><td>Correo destinatario</td><td><code>((email))</code></td></tr>
+      </tbody>
+    </table>
+    <div class="form-group">
+      <label>ASUNTO</label>
+      <input type="text" id="tpl-subject">
+    </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label>MENSAJE</label>
+      <textarea id="tpl-body" style="min-height: 260px; font-family: inherit;"></textarea>
+    </div>
+    <div id="tpl-msg" class="alert"></div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="closeTemplateModal()">Cancelar</button>
+      <button class="btn btn-red" onclick="saveTemplate()">GUARDAR PLANTILLA</button>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <script>
 let currentGarantiaNum = null;
@@ -696,20 +757,36 @@ function downloadPdf() {
   window.open(`/api/garantia/${currentGarantiaNum}/pdf`, '_blank');
 }
 
-function showEmailModal(num) {
+async function showEmailModal(num) {
   emailTargetNum = (typeof num === 'number') ? num : currentGarantiaNum;
   document.getElementById('emailModal').classList.add('show');
   document.getElementById('email-input').value = '';
+  document.getElementById('email-subject').value = '';
+  document.getElementById('email-body').value = 'Cargando vista previa...';
   document.getElementById('email-msg').style.display = 'none';
+  try {
+    const res = await fetch(`/api/garantia/${emailTargetNum}/email-preview`);
+    const d = await res.json();
+    document.getElementById('email-subject').value = d.subject || '';
+    document.getElementById('email-body').value = d.body || '';
+  } catch (e) {
+    document.getElementById('email-body').value = '';
+    showAlert('email-msg', 'No se pudo cargar la vista previa.', 'error');
+  }
 }
 function closeModal() { document.getElementById('emailModal').classList.remove('show'); }
 
 async function sendEmail() {
   const email = document.getElementById('email-input').value.trim();
+  const subject = document.getElementById('email-subject').value.trim();
+  const body = document.getElementById('email-body').value;
   if(!email) { showAlert('email-msg', 'Ingresa un correo.', 'error'); return; }
+  if(!subject) { showAlert('email-msg', 'El asunto no puede quedar vacío.', 'error'); return; }
+  if(!body.trim()) { showAlert('email-msg', 'El mensaje no puede quedar vacío.', 'error'); return; }
   const target = emailTargetNum || currentGarantiaNum;
   const res = await fetch(`/api/garantia/${target}/email`, {
-    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email})
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({email, subject, body})
   });
   const d = await res.json();
   if(d.success) {
@@ -717,6 +794,44 @@ async function sendEmail() {
     setTimeout(closeModal, 2000);
   } else {
     showAlert('email-msg', d.error || 'Error al enviar.', 'error');
+  }
+}
+
+async function openTemplateModal() {
+  document.getElementById('templateModal').classList.add('show');
+  document.getElementById('tpl-msg').style.display = 'none';
+  document.getElementById('tpl-subject').value = '';
+  document.getElementById('tpl-body').value = 'Cargando...';
+  try {
+    const res = await fetch('/api/email-template');
+    const d = await res.json();
+    document.getElementById('tpl-subject').value = d.subject || '';
+    document.getElementById('tpl-body').value = d.body || '';
+  } catch (e) {
+    document.getElementById('tpl-body').value = '';
+    showAlert('tpl-msg', 'No se pudo cargar la plantilla.', 'error');
+  }
+}
+
+function closeTemplateModal() {
+  document.getElementById('templateModal').classList.remove('show');
+}
+
+async function saveTemplate() {
+  const subject = document.getElementById('tpl-subject').value.trim();
+  const body = document.getElementById('tpl-body').value;
+  if(!subject) { showAlert('tpl-msg', 'El asunto es obligatorio.', 'error'); return; }
+  if(!body.trim()) { showAlert('tpl-msg', 'El mensaje es obligatorio.', 'error'); return; }
+  const res = await fetch('/api/email-template', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({subject, body})
+  });
+  const d = await res.json();
+  if(d.success) {
+    showAlert('tpl-msg', '✅ Plantilla guardada.', 'success');
+    setTimeout(closeTemplateModal, 1000);
+  } else {
+    showAlert('tpl-msg', d.error || 'Error al guardar.', 'error');
   }
 }
 

@@ -47,6 +47,30 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+class EmailTemplate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    subject = db.Column(db.String(255), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow,
+                           onupdate=datetime.datetime.utcnow)
+
+DEFAULT_EMAIL_SUBJECT = "Garantía Guardtire #((numero)) - ((placa))"
+DEFAULT_EMAIL_BODY = """Estimado cliente,
+
+Adjunto encontrará el certificado de garantía #((numero)) del polímero para:
+
+Vehículo: ((placa))
+Marca llanta: ((marca))
+Referencia: ((ref_llanta))
+Fecha: ((fecha))
+
+Para cualquier reclamación contáctenos:
+📞 300 412 6814
+✉ garantias@guardtire.com
+
+Guardtire AntiPinchazos
+"""
+
 class Garantia(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.Integer, unique=True, nullable=False)
@@ -220,10 +244,61 @@ def download_pdf(numero):
                      download_name=f'garantia_{numero}.pdf',
                      mimetype='application/pdf')
 
+def render_template_str(text, g, email=None):
+    repl = {
+        'numero': str(g.numero or ''),
+        'placa': g.placa or '',
+        'marca': g.marca or '',
+        'ref_llanta': g.ref_llanta or '',
+        'fecha': g.fecha or '',
+    }
+    if email is not None:
+        repl['email'] = email
+    for k, v in repl.items():
+        text = text.replace('((' + k + '))', v)
+        text = text.replace('{{' + k + '}}', v)  # back-compat
+    return text
+
+def get_template():
+    tpl = EmailTemplate.query.first()
+    if not tpl:
+        tpl = EmailTemplate(subject=DEFAULT_EMAIL_SUBJECT, body=DEFAULT_EMAIL_BODY)
+        db.session.add(tpl)
+        db.session.commit()
+    return tpl
+
+@app.route('/api/email-template', methods=['GET'])
+@login_required
+def get_email_template():
+    tpl = get_template()
+    return jsonify({'subject': tpl.subject, 'body': tpl.body})
+
+@app.route('/api/email-template', methods=['PUT'])
+@admin_required
+def update_email_template():
+    data = request.json or {}
+    tpl = get_template()
+    if 'subject' in data and data['subject'].strip():
+        tpl.subject = data['subject']
+    if 'body' in data and data['body'].strip():
+        tpl.body = data['body']
+    db.session.commit()
+    return jsonify({'success': True, 'subject': tpl.subject, 'body': tpl.body})
+
+@app.route('/api/garantia/<int:numero>/email-preview', methods=['GET'])
+@login_required
+def email_preview(numero):
+    g = Garantia.query.filter_by(numero=numero).first_or_404()
+    tpl = get_template()
+    return jsonify({
+        'subject': render_template_str(tpl.subject, g),
+        'body': render_template_str(tpl.body, g),
+    })
+
 @app.route('/api/garantia/<int:numero>/email', methods=['POST'])
 @login_required
 def send_email_garantia(numero):
-    data = request.json
+    data = request.json or {}
     email_to = data.get('email')
     g = Garantia.query.filter_by(numero=numero).first_or_404()
 
@@ -237,8 +312,15 @@ def send_email_garantia(numero):
             print("ERROR GENERANDO PDF:", traceback.format_exc())
             return jsonify({'error': f'Error generando PDF: {str(e)}'}), 500
 
+    tpl = get_template()
+    subject = data.get('subject') or render_template_str(tpl.subject, g, email_to)
+    body = data.get('body') or render_template_str(tpl.body, g, email_to)
+    # also resolve ((email)) in user-edited content
+    subject = render_template_str(subject, g, email_to)
+    body = render_template_str(body, g, email_to)
+
     try:
-        send_email(email_to, g)
+        send_email(email_to, g, subject, body)
         return jsonify({'success': True})
     except Exception as e:
         print("ERROR SMTP:", traceback.format_exc())
@@ -599,32 +681,25 @@ def generate_pdf(g):
     return filepath
 
 # ─── EMAIL ─────────────────────────────────────────────────────────────────────
-def send_email(to_email, g):
+def send_email(to_email, g, subject=None, body=None):
     import resend
     resend.api_key = os.environ.get('RESEND_API_KEY', '')
 
     with open(g.pdf_path, 'rb') as f:
         pdf_bytes = f.read()
 
+    if subject is None or body is None:
+        tpl = get_template()
+        if subject is None:
+            subject = render_template_str(tpl.subject, g)
+        if body is None:
+            body = render_template_str(tpl.body, g)
+
     params = {
         "from": "Guardtire <garantias@guardtire.com>",
         "to": [to_email],
-        "subject": f"Garantía Guardtire #{g.numero} - {g.placa}",
-        "text": f"""Estimado cliente,
-
-Adjunto encontrará el certificado de garantía #{g.numero} del polimero para :
-
-Vehículo: {g.placa}
-Marca llanta: {g.marca}
-Referencia: {g.ref_llanta}
-Fecha: {g.fecha}
-
-Para cualquier reclamación contáctenos:
-📞 300 412 6814
-✉ garantias@guardtire.com
-
-Guardtire AntiPinchazos
-""",
+        "subject": subject,
+        "text": body,
         "attachments": [
             {
                 "filename": f"garantia_{g.numero}.pdf",
@@ -645,6 +720,11 @@ def init_db():
             db.session.add(admin)
             db.session.commit()
             print("Admin creado: admin / guardtire2025")
+        if not EmailTemplate.query.first():
+            tpl = EmailTemplate(subject=DEFAULT_EMAIL_SUBJECT, body=DEFAULT_EMAIL_BODY)
+            db.session.add(tpl)
+            db.session.commit()
+            print("Plantilla de correo por defecto creada.")
 
 # Auto-init DB (runs on gunicorn startup too, safe - only creates if not exists)
 init_db()
