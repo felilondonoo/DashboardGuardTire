@@ -174,20 +174,15 @@ tr:hover td { background: #fafafa; }
 <div id="tab-calc" class="tab-panel active">
   <div class="card">
     <div class="card-title">🔢 Calculadora de Kg de Polímero</div>
-    <div class="form-grid">
+    <div id="auto-fields">
       <div class="form-group">
         <label>REFERENCIA DE LLANTA</label>
-        <select id="calc-ref" onchange="calcRefChange()">
+        <select id="calc-ref">
           <option value="">— Seleccionar referencia —</option>
         </select>
       </div>
-      <div class="form-group">
-        <label>CANTIDAD DE LLANTAS</label>
-        <input type="number" id="calc-qty" value="1" min="1" max="100">
-      </div>
     </div>
-    <div id="manual-calc" style="display:none; margin-top:16px;">
-      <div style="font-size:12px; color:#888; margin-bottom:10px;">O calcula manualmente:</div>
+    <div id="manual-fields" style="display:none;">
       <div class="form-grid-3">
         <div class="form-group">
           <label>W (mm)</label>
@@ -203,9 +198,13 @@ tr:hover td { background: #fafafa; }
         </div>
       </div>
     </div>
+    <div class="form-group" style="margin-top:16px; max-width: 320px;">
+      <label>CANTIDAD DE LLANTAS</label>
+      <input type="number" id="calc-qty" value="1" min="1" max="100">
+    </div>
     <div class="btn-row">
       <button class="btn btn-red" onclick="calculate()">CALCULAR</button>
-      <button class="btn btn-outline" onclick="toggleManual()">Entrada manual</button>
+      <button class="btn btn-outline" id="toggle-mode-btn" onclick="toggleManual()">Entrada manual</button>
     </div>
     <div id="calc-result" style="display:none" class="result-box">
       <div class="result-value" id="result-total">—</div>
@@ -561,22 +560,39 @@ function switchTab(name) {
   if(name === 'admin') loadUsers();
 }
 
-function toggleManual() {
-  const el = document.getElementById('manual-calc');
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
+let manualMode = false;
 
-function calcRefChange() {
-  document.getElementById('manual-calc').style.display = 'none';
+function toggleManual() {
+  manualMode = !manualMode;
+  const auto = document.getElementById('auto-fields');
+  const manual = document.getElementById('manual-fields');
+  const btn = document.getElementById('toggle-mode-btn');
+  if (manualMode) {
+    auto.style.display = 'none';
+    manual.style.display = 'block';
+    btn.textContent = 'Entrada automática';
+  } else {
+    auto.style.display = 'block';
+    manual.style.display = 'none';
+    btn.textContent = 'Entrada manual';
+  }
+  document.getElementById('calc-result').style.display = 'none';
 }
 
 async function calculate() {
-  const ref = document.getElementById('calc-ref').value;
   const qty = parseInt(document.getElementById('calc-qty').value) || 1;
-  const w = document.getElementById('calc-w').value;
-  const pct = document.getElementById('calc-pct').value;
-  const r = document.getElementById('calc-r').value;
-  const body = ref ? {referencia: ref, cantidad: qty} : {w, pct, r, cantidad: qty};
+  let body;
+  if (manualMode) {
+    const w = document.getElementById('calc-w').value;
+    const pct = document.getElementById('calc-pct').value;
+    const r = document.getElementById('calc-r').value;
+    if (!w || !pct || !r) { alert('Completa W, PERFIL % y RIN.'); return; }
+    body = { w, pct, r, cantidad: qty };
+  } else {
+    const ref = document.getElementById('calc-ref').value;
+    if (!ref) { alert('Selecciona una referencia.'); return; }
+    body = { referencia: ref, cantidad: qty };
+  }
   const res = await fetch('/api/calculate', {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
   });

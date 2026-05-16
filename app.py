@@ -148,15 +148,19 @@ def calculate():
         total_kg = round(kg_per_tire * qty, 4)
         return jsonify({'kg_por_llanta': kg_per_tire, 'total_kg': total_kg, 'cantidad': qty})
     # manual calculation
-    w = float(data.get('w', 0))
-    pct = float(data.get('pct', 0)) / 100
-    r = float(data.get('r', 0))
-    if w and r:
+    try:
+        w = float(data.get('w', 0))
+        pct = float(data.get('pct', 0))
+        r = float(data.get('r', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Datos inválidos'}), 400
+    if w and r and pct:
         espesor = 0.004
-        cant_glue = espesor * (2 * 3.14159 * (r * 25.4) * w * pct + 2 * 3.14159 * (r * 25.4) * w * pct) * 1000
-        kg = round(cant_glue / 1000 * qty, 4)
-        return jsonify({'kg_por_llanta': round(cant_glue / 1000, 4), 'total_kg': kg, 'cantidad': qty})
-    return jsonify({'error': 'Referencia no encontrada'}), 404
+        kg_per_tire = w * espesor * 3.1416 * (2 * (w * pct / 100) + 25.4 * r) / 1000
+        kg_per_tire = round(kg_per_tire, 4)
+        total_kg = round(kg_per_tire * qty, 4)
+        return jsonify({'kg_por_llanta': kg_per_tire, 'total_kg': total_kg, 'cantidad': qty})
+    return jsonify({'error': 'Datos incompletos'}), 400
 
 # ─── GARANTÍA API ──────────────────────────────────────────────────────────────
 @app.route('/api/garantia/next-number')
