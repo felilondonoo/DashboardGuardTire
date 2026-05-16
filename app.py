@@ -252,6 +252,89 @@ def list_garantias():
         'total': gs.total, 'pages': gs.pages, 'current': gs.page
     })
 
+@app.route('/api/garantia/<int:numero>', methods=['GET'])
+@login_required
+def get_garantia(numero):
+    g = Garantia.query.filter_by(numero=numero).first_or_404()
+    return jsonify({
+        'numero': g.numero, 'placa': g.placa, 'marca': g.marca,
+        'ref_llanta': g.ref_llanta, 'km': g.km, 'fecha': g.fecha,
+        'pct_llanta_1': g.pct_llanta_1, 'pct_llanta_2': g.pct_llanta_2,
+        'pct_llanta_3': g.pct_llanta_3, 'pct_llanta_4': g.pct_llanta_4,
+        'alineacion': g.alineacion, 'balanceo': g.balanceo,
+        'observaciones': g.observaciones, 'tipo_llanta': g.tipo_llanta,
+        'created_by': g.created_by,
+    })
+
+@app.route('/api/garantia/<int:numero>', methods=['PUT'])
+@admin_required
+def update_garantia(numero):
+    g = Garantia.query.filter_by(numero=numero).first_or_404()
+    data = request.json or {}
+    for field in ('placa', 'marca', 'ref_llanta', 'km', 'fecha',
+                  'pct_llanta_1', 'pct_llanta_2', 'pct_llanta_3', 'pct_llanta_4',
+                  'alineacion', 'balanceo', 'observaciones', 'tipo_llanta'):
+        if field in data:
+            setattr(g, field, data[field])
+    try:
+        pdf_path = generate_pdf(g)
+        g.pdf_path = pdf_path
+    except Exception as e:
+        print("ERROR REGENERANDO PDF:", traceback.format_exc())
+    db.session.commit()
+    return jsonify({'success': True, 'numero': g.numero})
+
+@app.route('/api/garantia/<int:numero>', methods=['DELETE'])
+@admin_required
+def delete_garantia(numero):
+    g = Garantia.query.filter_by(numero=numero).first_or_404()
+    if g.pdf_path and os.path.exists(g.pdf_path):
+        try:
+            os.remove(g.pdf_path)
+        except Exception:
+            pass
+    db.session.delete(g)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/garantias/export')
+@admin_required
+def export_garantias():
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Garantías'
+    headers = ['#', 'Placa', 'Marca', 'Ref. Llanta', 'Kilómetros', 'Fecha',
+               'Tipo', '% Llanta 1', '% Llanta 2', '% Llanta 3', '% Llanta 4',
+               'Alineación', 'Balanceo', 'Observaciones', 'Creado por', 'Creado en']
+    ws.append(headers)
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill('solid', fgColor='111111')
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    for g in Garantia.query.order_by(Garantia.numero.desc()).all():
+        ws.append([
+            g.numero, g.placa or '', g.marca or '', g.ref_llanta or '',
+            g.km or '', g.fecha or '', (g.tipo_llanta or '').capitalize(),
+            g.pct_llanta_1 or '', g.pct_llanta_2 or '',
+            g.pct_llanta_3 or '', g.pct_llanta_4 or '',
+            (g.alineacion or '').upper(), (g.balanceo or '').upper(),
+            g.observaciones or '', g.created_by or '',
+            g.created_at.strftime('%Y-%m-%d %H:%M') if g.created_at else '',
+        ])
+    widths = [8, 12, 18, 16, 14, 14, 10, 12, 12, 12, 12, 12, 12, 40, 16, 18]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[chr(64 + i) if i <= 26 else 'A' + chr(64 + i - 26)].width = w
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = f"garantias_{datetime.date.today().strftime('%Y%m%d')}.xlsx"
+    return send_file(buf, as_attachment=True, download_name=fname,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
 # ─── ADMIN: USER MANAGEMENT ────────────────────────────────────────────────────
 @app.route('/api/users', methods=['GET'])
 @admin_required

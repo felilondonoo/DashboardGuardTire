@@ -335,10 +335,16 @@ tr:hover td { background: #fafafa; }
 <!-- ─── HISTORIAL ─── -->
 <div id="tab-historial" class="tab-panel">
   <div class="card">
-    <div class="card-title">📋 Historial de Garantías</div>
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+      <span>📋 Historial de Garantías</span>
+      {% if role == 'admin' %}
+      <button class="btn btn-green btn-sm" onclick="exportExcel()">⬇ Descargar Excel</button>
+      {% endif %}
+    </div>
+    <div id="hist-alert" class="alert"></div>
     <table>
       <thead>
-        <tr><th>#</th><th>PLACA</th><th>MARCA</th><th>FECHA</th><th>TIPO</th><th>USUARIO</th><th></th></tr>
+        <tr><th>#</th><th>PLACA</th><th>MARCA</th><th>FECHA</th><th>TIPO</th><th>USUARIO</th><th>ACCIONES</th></tr>
       </thead>
       <tbody id="hist-tbody">
         <tr><td colspan="7" style="text-align:center; color:#aaa; padding:30px;">Cargando...</td></tr>
@@ -347,6 +353,87 @@ tr:hover td { background: #fafafa; }
     <div class="pagination" id="hist-pagination"></div>
   </div>
 </div>
+
+<!-- EDIT GARANTÍA MODAL -->
+{% if role == 'admin' %}
+<div class="modal-overlay" id="editModal">
+  <div class="modal" style="width: 720px;">
+    <div class="modal-title">✏ Editar Garantía <span id="edit-num"></span></div>
+    <div id="edit-alert" class="alert"></div>
+    <div class="form-grid-3">
+      <div class="form-group">
+        <label>PLACA</label>
+        <input type="text" id="e-placa">
+      </div>
+      <div class="form-group">
+        <label>MARCA</label>
+        <input type="text" id="e-marca">
+      </div>
+      <div class="form-group">
+        <label>REF. LLANTA</label>
+        <input type="text" id="e-ref">
+      </div>
+      <div class="form-group">
+        <label>KILÓMETROS</label>
+        <input type="text" id="e-km" inputmode="numeric" oninput="onlyDigits(this)">
+      </div>
+      <div class="form-group">
+        <label>FECHA</label>
+        <input type="date" id="e-fecha">
+      </div>
+      <div class="form-group">
+        <label>TIPO</label>
+        <select id="e-tipo">
+          <option value="nueva">Nueva</option>
+          <option value="usada">Usada</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid" style="margin-top:12px;">
+      <div class="form-group">
+        <label>% LLANTA 1</label>
+        <input type="text" id="e-pct1" inputmode="numeric" maxlength="3" oninput="onlyDigits(this, 100)">
+      </div>
+      <div class="form-group">
+        <label>% LLANTA 2</label>
+        <input type="text" id="e-pct2" inputmode="numeric" maxlength="3" oninput="onlyDigits(this, 100)">
+      </div>
+      <div class="form-group">
+        <label>% LLANTA 3</label>
+        <input type="text" id="e-pct3" inputmode="numeric" maxlength="3" oninput="onlyDigits(this, 100)">
+      </div>
+      <div class="form-group">
+        <label>% LLANTA 4</label>
+        <input type="text" id="e-pct4" inputmode="numeric" maxlength="3" oninput="onlyDigits(this, 100)">
+      </div>
+      <div class="form-group">
+        <label>ALINEACIÓN</label>
+        <select id="e-alin">
+          <option value="">—</option>
+          <option value="si">SÍ</option>
+          <option value="no">NO</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>BALANCEO</label>
+        <select id="e-bal">
+          <option value="">—</option>
+          <option value="si">SÍ</option>
+          <option value="no">NO</option>
+        </select>
+      </div>
+      <div class="form-group form-full">
+        <label>OBSERVACIONES</label>
+        <textarea id="e-obs"></textarea>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="closeEditModal()">Cancelar</button>
+      <button class="btn btn-red" onclick="saveEdit()">GUARDAR</button>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <!-- ─── ADMIN USUARIOS ─── -->
 {% if role == 'admin' %}
@@ -409,6 +496,9 @@ tr:hover td { background: #fafafa; }
 let currentGarantiaNum = null;
 let currentPage = 1;
 let tipoLlanta = '';
+let emailTargetNum = null;
+let editingNum = null;
+const IS_ADMIN = {{ 'true' if role == 'admin' else 'false' }};
 
 function onlyDigits(el, max) {
   let v = el.value.replace(/\D+/g, '');
@@ -590,7 +680,8 @@ function downloadPdf() {
   window.open(`/api/garantia/${currentGarantiaNum}/pdf`, '_blank');
 }
 
-function showEmailModal() {
+function showEmailModal(num) {
+  emailTargetNum = (typeof num === 'number') ? num : currentGarantiaNum;
   document.getElementById('emailModal').classList.add('show');
   document.getElementById('email-input').value = '';
   document.getElementById('email-msg').style.display = 'none';
@@ -600,7 +691,8 @@ function closeModal() { document.getElementById('emailModal').classList.remove('
 async function sendEmail() {
   const email = document.getElementById('email-input').value.trim();
   if(!email) { showAlert('email-msg', 'Ingresa un correo.', 'error'); return; }
-  const res = await fetch(`/api/garantia/${currentGarantiaNum}/email`, {
+  const target = emailTargetNum || currentGarantiaNum;
+  const res = await fetch(`/api/garantia/${target}/email`, {
     method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email})
   });
   const d = await res.json();
@@ -609,6 +701,93 @@ async function sendEmail() {
     setTimeout(closeModal, 2000);
   } else {
     showAlert('email-msg', d.error || 'Error al enviar.', 'error');
+  }
+}
+
+function exportExcel() {
+  window.open('/api/garantias/export', '_blank');
+}
+
+async function openEditModal(num) {
+  editingNum = num;
+  const res = await fetch(`/api/garantia/${num}`);
+  if(!res.ok) { showAlert('hist-alert', 'No se pudo cargar la garantía.', 'error'); return; }
+  const g = await res.json();
+  document.getElementById('edit-num').textContent = '#' + g.numero;
+  document.getElementById('e-placa').value = g.placa || '';
+  document.getElementById('e-marca').value = g.marca || '';
+  document.getElementById('e-ref').value = g.ref_llanta || '';
+  document.getElementById('e-km').value = (g.km || '').replace(/\D+/g, '');
+  // fecha viene como DD/MM/YYYY → convertir a YYYY-MM-DD para el datepicker
+  let fechaIso = '';
+  if (g.fecha && /^\d{2}\/\d{2}\/\d{4}$/.test(g.fecha)) {
+    const [d, m, y] = g.fecha.split('/');
+    fechaIso = `${y}-${m}-${d}`;
+  } else if (g.fecha && /^\d{4}-\d{2}-\d{2}$/.test(g.fecha)) {
+    fechaIso = g.fecha;
+  }
+  document.getElementById('e-fecha').value = fechaIso;
+  document.getElementById('e-tipo').value = g.tipo_llanta || 'nueva';
+  document.getElementById('e-pct1').value = (g.pct_llanta_1 || '').replace(/\D+/g, '');
+  document.getElementById('e-pct2').value = (g.pct_llanta_2 || '').replace(/\D+/g, '');
+  document.getElementById('e-pct3').value = (g.pct_llanta_3 || '').replace(/\D+/g, '');
+  document.getElementById('e-pct4').value = (g.pct_llanta_4 || '').replace(/\D+/g, '');
+  document.getElementById('e-alin').value = g.alineacion || '';
+  document.getElementById('e-bal').value = g.balanceo || '';
+  document.getElementById('e-obs').value = g.observaciones || '';
+  document.getElementById('edit-alert').style.display = 'none';
+  document.getElementById('editModal').classList.add('show');
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('show');
+  editingNum = null;
+}
+
+async function saveEdit() {
+  if(!editingNum) return;
+  const rawFecha = document.getElementById('e-fecha').value.trim();
+  let fecha = rawFecha;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawFecha)) {
+    const [y, m, d] = rawFecha.split('-');
+    fecha = `${d}/${m}/${y}`;
+  }
+  const payload = {
+    placa: document.getElementById('e-placa').value.trim().toUpperCase(),
+    marca: document.getElementById('e-marca').value.trim(),
+    ref_llanta: document.getElementById('e-ref').value.trim(),
+    km: document.getElementById('e-km').value.trim(),
+    fecha: fecha,
+    tipo_llanta: document.getElementById('e-tipo').value,
+    pct_llanta_1: document.getElementById('e-pct1').value.trim(),
+    pct_llanta_2: document.getElementById('e-pct2').value.trim(),
+    pct_llanta_3: document.getElementById('e-pct3').value.trim(),
+    pct_llanta_4: document.getElementById('e-pct4').value.trim(),
+    alineacion: document.getElementById('e-alin').value,
+    balanceo: document.getElementById('e-bal').value,
+    observaciones: document.getElementById('e-obs').value.trim(),
+  };
+  const res = await fetch(`/api/garantia/${editingNum}`, {
+    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+  });
+  const d = await res.json();
+  if(d.success) {
+    showAlert('edit-alert', '✅ Garantía actualizada.', 'success');
+    setTimeout(() => { closeEditModal(); loadHistorial(currentPage); }, 800);
+  } else {
+    showAlert('edit-alert', d.error || 'Error al actualizar.', 'error');
+  }
+}
+
+async function deleteGarantia(num) {
+  if(!confirm(`¿Eliminar la garantía #${num}? Esta acción no se puede deshacer.`)) return;
+  const res = await fetch(`/api/garantia/${num}`, {method: 'DELETE'});
+  const d = await res.json();
+  if(d.success) {
+    showAlert('hist-alert', `✅ Garantía #${num} eliminada.`, 'success');
+    loadHistorial(currentPage);
+  } else {
+    showAlert('hist-alert', d.error || 'Error al eliminar.', 'error');
   }
 }
 
@@ -629,8 +808,13 @@ async function loadHistorial(page) {
       <td>${g.fecha || '—'}</td>
       <td><span class="badge badge-${g.tipo}">${g.tipo}</span></td>
       <td>${g.created_by || '—'}</td>
-      <td>
+      <td style="display:flex; gap:6px; flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" onclick="window.open('/api/garantia/${g.numero}/pdf','_blank')">PDF</button>
+        <button class="btn btn-outline btn-sm" onclick="showEmailModal(${g.numero})">✉ Reenviar</button>
+        ${IS_ADMIN ? `
+          <button class="btn btn-outline btn-sm" onclick="openEditModal(${g.numero})">✏ Editar</button>
+          <button class="btn btn-sm" style="background:#222222;color:#fff;" onclick="deleteGarantia(${g.numero})">Eliminar</button>
+        ` : ''}
       </td>
     </tr>
   `).join('');
